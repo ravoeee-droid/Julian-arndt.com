@@ -1,20 +1,16 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".",
-  "installCommand": "npm install",
+  "buildCommand": "node deploy-uploaded-site.js",
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "headers": [
     {
-      "source": "/assets/(.*).webp",
+      "source": "/assets/(.*)",
       "headers": [
-        { "key": "Content-Type", "value": "image/svg+xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/assets/og-image.jpg",
-      "headers": [
-        { "key": "Content-Type", "value": "image/svg+xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     }
   ]
