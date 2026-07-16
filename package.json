@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "node assemble-static.js && node finalize-package.js"
+    "build": "node assemble-static.js && node finalize-package.js && node download-page.js"
   },
   "devDependencies": {}
 }
