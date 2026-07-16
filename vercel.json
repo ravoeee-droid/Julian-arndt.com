@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node cache-bust-assets.js",
+  "buildCommand": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node cache-bust-assets.js",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
