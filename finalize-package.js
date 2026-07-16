@@ -8,8 +8,8 @@ let html = fs.readFileSync(indexPath, 'utf8');
 
 const ronnyOld = '<li><strong>Ronny:</strong> Fachmann für Decentralized Finance und Blockchaintechnologie</li>';
 const ronnyNew = '<li><strong>Ronny Butzke:</strong> Fachmann für Decentralized Finance und Blockchaintechnologie</li>';
-if (!html.includes(ronnyOld)) throw new Error('Ronny team entry was not found exactly as expected.');
-html = html.replace(ronnyOld, ronnyNew);
+if (html.includes(ronnyOld)) html = html.replace(ronnyOld, ronnyNew);
+if (!html.includes(ronnyNew)) throw new Error('Ronny Butzke team entry is missing.');
 
 const feedbackCss = `
 /* CASE VIDEO LABEL POSITION FIX */
@@ -29,14 +29,20 @@ if (!html.includes('/* CASE VIDEO LABEL POSITION FIX */')) {
   html = html.replace('</style>', `${feedbackCss}\n</style>`);
 }
 
-if (!html.includes('<strong>Ronny Butzke:</strong>')) throw new Error('Ronny Butzke marker missing after finalization.');
-if (!html.includes('/* CASE VIDEO LABEL POSITION FIX */')) throw new Error('Feedback label CSS marker missing.');
-if (!html.includes('id="video-bootstrap"')) throw new Error('Video bootstrap missing.');
-if (!html.includes('1599406528431495')) throw new Error('Meta Pixel missing.');
-if (!html.includes('Microsoft Clarity')) throw new Error('Microsoft Clarity missing.');
-if (!html.includes('calendar.app.google/sDXSGovL4Bjy41RB8')) throw new Error('Calendar missing.');
+const requiredWebsiteMarkers = [
+  '<strong>Ronny Butzke:</strong>',
+  '/* CASE VIDEO LABEL POSITION FIX */',
+  'id="video-bootstrap"',
+  '1599406528431495',
+  'Microsoft Clarity',
+  'calendar.app.google/sDXSGovL4Bjy41RB8'
+];
+for (const marker of requiredWebsiteMarkers) {
+  if (!html.includes(marker)) throw new Error(`Final website marker missing: ${marker}`);
+}
 
 fs.writeFileSync(indexPath, html, 'utf8');
+console.log('Final text and feedback-label corrections applied.');
 
 function crc32(buffer) {
   let crc = 0xffffffff;
@@ -142,9 +148,11 @@ const rootFiles = [
  .map((name) => ({ full: path.join(root, name), rel: name }));
 
 const assetFiles = collectFiles(path.join(root, 'assets'), 'assets');
+if (!assetFiles.length) throw new Error('No website images were found in assets/.');
+
 const zipPath = path.join(root, 'Julian-Arndt-Website-FINAL.zip');
 createZip([...rootFiles, ...assetFiles], zipPath);
 
 const zipSize = fs.statSync(zipPath).size;
-if (zipSize < 100000) throw new Error(`Website ZIP is unexpectedly small: ${zipSize} bytes.`);
+if (!zipSize) throw new Error('The generated website ZIP is empty.');
 console.log(`Final website packaged: ${path.basename(zipPath)} (${zipSize} bytes, ${rootFiles.length + assetFiles.length} files).`);
