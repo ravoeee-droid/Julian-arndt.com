@@ -52,16 +52,6 @@ const screenshots = [
     alt: 'WhatsApp-Kundenstimme über mehr als drei Jahre Begleitung, Vermögensaufbau und Cashflow-Strategien'
   },
   {
-    source: 'kundenstimme-joerg-kontext.jpeg',
-    target: 'trust-kundenstimme-joerg-kontext.jpeg',
-    width: 853,
-    height: 1844,
-    type: 'feedback featured',
-    eyebrow: 'Langzeit-Kundenstimme',
-    title: 'Das Kryptogeschäft verstehen und langfristig nutzen',
-    alt: 'WhatsApp-Kundenstimme über CryptoBasics, Vermögensaufbau und eine langfristige Begleitung'
-  },
-  {
     source: 'umsetzung-gold-trades.jpeg',
     target: 'trust-umsetzung-gold-trades.jpeg',
     width: 1170,
@@ -318,7 +308,6 @@ const requiredMarkers = [
   'trust-kundenstimme-julius.jpeg',
   'trust-kundenstimme-kai.jpeg',
   'trust-kundenstimme-joerg-keyboard.jpeg',
-  'trust-kundenstimme-joerg-kontext.jpeg',
   'trust-umsetzung-gold-trades.jpeg',
   'trust-ergebnis-sol-eth.jpeg',
   'Trading und Krypto sind mit erheblichen Verlustrisiken verbunden'
