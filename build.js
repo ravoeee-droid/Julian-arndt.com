@@ -3,7 +3,7 @@ const path = require('path');
 
 const SOURCE_BASE = 'https://raw.githubusercontent.com/ravoeee-droid/Julianarndt/main/';
 const CALENDAR_URL = 'https://calendar.app.google/sDXSGovL4Bjy41RB8';
-const CLARITY_ID = 'xjysyowuom';
+const CLARITY_ID = 'xjrqe58i0h';
 
 const pages = ['index.html', 'datenschutz.html', 'impressum.html', 'agb.html'];
 const optionalTextFiles = ['robots.txt', 'sitemap.xml', 'site.webmanifest'];

@@ -5,6 +5,7 @@ const zlib = require('zlib');
 const root = __dirname;
 const zipPath = path.join(root, 'Julian-Arndt-Website-FINAL-MIT-BILDERN.zip');
 const outputDir = path.join(root, 'dist');
+const clarityProjectId = 'xjrqe58i0h';
 
 if (!fs.existsSync(zipPath)) {
   throw new Error(`Uploaded website ZIP is missing: ${path.basename(zipPath)}`);
@@ -110,6 +111,22 @@ function assertImageSignature(relative, type) {
 
 const extracted = extractZip(zip, outputDir);
 
+for (const relative of extracted.filter((name) => name.endsWith('.html'))) {
+  const filePath = path.join(outputDir, relative);
+  const source = fs.readFileSync(filePath, 'utf8');
+  const updated = source
+    .replace(
+      /(\"clarity\",\s*\"script\",\s*\")[a-zA-Z0-9]+(\")/g,
+      `$1${clarityProjectId}$2`
+    )
+    .replace(
+      /(Clarity-Projekt-ID lautet <strong>)[^<]+(<\/strong>)/g,
+      `$1${clarityProjectId}$2`
+    );
+
+  if (updated !== source) fs.writeFileSync(filePath, updated);
+}
+
 const requiredImages = [
   ['assets/hero-thumbnail.webp', 'webp'],
   ['assets/julian-analysis.webp', 'webp'],
@@ -136,6 +153,7 @@ const requiredMarkers = [
   'MOBILE HERO VIDEO WIDTH FIX',
   'CASE VIDEO LABEL POSITION FIX',
   'Microsoft Clarity',
+  clarityProjectId,
   '1599406528431495',
   'calendar.app.google/sDXSGovL4Bjy41RB8'
 ];
