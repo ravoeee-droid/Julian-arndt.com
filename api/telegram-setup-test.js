@@ -31,11 +31,10 @@ module.exports = async function handler(req, res) {
     const messages = (updatesBody.result || [])
       .map((update) => update && update.message)
       .filter((message) => message && message.chat && message.chat.type === 'private');
+
     const exact = messages.filter((message) => String(message.text || '').trim().toLowerCase() === 'julian');
-    const named = messages.filter((message) => String(message.from && message.from.first_name || '').trim().toLowerCase() === 'julian');
-    const candidates = exact.length ? exact : named;
-    const message = candidates[candidates.length - 1];
-    if (!message) return json(res, 404, { ok: false, reason: 'julian_message_not_found', privateMessages: messages.length });
+    const message = exact[exact.length - 1] || messages[messages.length - 1];
+    if (!message) return json(res, 404, { ok: false, reason: 'private_message_not_found', privateMessages: 0 });
 
     const chatId = String(message.chat.id);
     const sendResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -49,7 +48,7 @@ module.exports = async function handler(req, res) {
     });
     const sendBody = await sendResponse.json();
     if (!sendResponse.ok || !sendBody.ok) {
-      return json(res, 502, { ok: false, reason: 'test_message_failed', chatId });
+      return json(res, 502, { ok: false, reason: 'test_message_failed' });
     }
 
     return json(res, 200, {
