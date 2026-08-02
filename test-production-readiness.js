@@ -9,10 +9,13 @@ const migration = fs.readFileSync(path.join(__dirname, 'supabase', 'migrations',
 assert(html.includes('viewport-fit=cover'), 'Mobile safe-area viewport configuration is missing.');
 assert(html.includes('id="cashflow-mobile-scroll-fix"'), 'Base mobile scroll fix is missing.');
 assert(html.includes('PRODUCTION_FUNNEL_HARDENING'), 'Production mobile hardening is missing.');
-assert(html.includes('INSTANT_LEAD_CAPTURE_PATCH'), 'Instant lead capture is missing.');
+assert(!html.includes('INSTANT_LEAD_CAPTURE_PATCH'), 'Final-step form must not auto-submit while the user is scrolling or typing.');
+assert(html.includes("content.addEventListener('submit'"), 'Explicit final-step submission handler is missing.');
 assert(html.includes("if(!leadEventId)leadEventId=eventId('lead')"), 'Lead retries are not idempotent in the browser.');
 assert(html.includes('--cf-viewport-height'), 'Visual viewport keyboard handling is missing.');
-assert(html.includes('#cfLeadForm .cf-contact-grid>.cf-field:last-child'), 'Sticky mobile submit action is missing.');
+assert(html.includes('observer.observe(content,{childList:true})'), 'Step changes are not observed safely.');
+assert(!html.includes('observer.observe(content,{childList:true,subtree:true})'), 'Subtree mutations must not reset the form scroll position.');
+assert(html.includes('position:static!important'), 'Mobile submit action must remain in normal document flow.');
 assert(html.includes('@media (max-width:900px) and (max-height:560px)'), 'Landscape phone layout is missing.');
 assert(migration.includes('enable row level security'), 'Supabase RLS is not enabled in the migration.');
 assert(migration.includes('event_id text not null unique'), 'Supabase idempotency constraint is missing.');
@@ -35,4 +38,4 @@ assert.strictEqual(mapped.goal, 'cashflow');
 assert.strictEqual(mapped.utm_source, 'meta');
 assert.strictEqual(mapped.privacy_accepted, true);
 
-console.log('Production readiness tests passed: mobile viewport, keyboard/scroll handling, instant capture, idempotency and Supabase schema.');
+console.log('Production readiness tests passed: stable mobile scrolling, explicit final submission, idempotency and Supabase schema.');
