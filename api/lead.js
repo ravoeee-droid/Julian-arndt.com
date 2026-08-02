@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const DEFAULT_PIXEL_ID = '1599406528431495';
 const DEFAULT_GRAPH_VERSION = 'v25.0';
+const DEFAULT_SUPABASE_TABLE = 'cashflow_leads';
 const MAX_BODY_BYTES = 24 * 1024;
 
 const ALLOWED_ANSWERS = {
@@ -164,14 +165,14 @@ function validateLead(body) {
   };
 }
 
-async function postJson(url, payload, headers = {}, timeoutMs = 4500) {
+async function requestJson(url, { method = 'POST', payload, headers = {}, timeoutMs = 4500 } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(payload),
+      body: payload === undefined ? undefined : JSON.stringify(payload),
       signal: controller.signal
     });
     const text = await response.text();
@@ -189,18 +190,131 @@ async function postJson(url, payload, headers = {}, timeoutMs = 4500) {
   }
 }
 
-async function forwardToLeadReceiver(payload) {
-  const webhookUrl = process.env.LEAD_WEBHOOK_URL;
-  if (!webhookUrl) {
-    if (process.env.VERCEL_ENV === 'production') throw new Error('lead_receiver_not_configured');
-    return { skipped: true };
-  }
+function getSupabaseConfig() {
+  const url = cleanText(process.env.SUPABASE_URL, 600).replace(/\/+$/, '');
+  const serviceRoleKey = cleanText(process.env.SUPABASE_SERVICE_ROLE_KEY, 6000);
+  const table = cleanText(process.env.SUPABASE_LEADS_TABLE, 80) || DEFAULT_SUPABASE_TABLE;
+  if (!url || !serviceRoleKey) return null;
+  if (!/^https:\/\//i.test(url)) throw new Error('invalid_supabase_url');
+  if (!/^[a-zA-Z0-9_]+$/.test(table)) throw new Error('invalid_supabase_table');
+  return { url, serviceRoleKey, table };
+}
 
+function supabaseHeaders(config, prefer = 'return=minimal') {
+  return {
+    apikey: config.serviceRoleKey,
+    Authorization: `Bearer ${config.serviceRoleKey}`,
+    Prefer: prefer
+  };
+}
+
+function mapLeadToSupabaseRow(payload) {
+  const attribution = payload.attribution || {};
+  const qualification = payload.qualification || {};
+  return {
+    id: payload.leadId,
+    event_id: payload.eventId,
+    created_at: payload.createdAt,
+    updated_at: payload.createdAt,
+    source: payload.source,
+    status: 'new',
+    contact_preference: payload.contactPreference || 'unselected',
+    first_name: payload.contact && payload.contact.firstName,
+    email: payload.contact && payload.contact.email,
+    phone: payload.contact && payload.contact.phone,
+    goal: qualification.goal || null,
+    experience: qualification.experience || null,
+    capital: qualification.capital || null,
+    blocker: qualification.blocker || null,
+    qualification,
+    privacy_accepted: Boolean(payload.consent && payload.consent.privacyAccepted),
+    marketing_consent: Boolean(payload.consent && payload.consent.marketingConsent),
+    utm_source: attribution.utmSource || null,
+    utm_medium: attribution.utmMedium || null,
+    utm_campaign: attribution.utmCampaign || null,
+    utm_content: attribution.utmContent || null,
+    utm_term: attribution.utmTerm || null,
+    fbclid: attribution.fbclid || null,
+    fbp: attribution.fbp || null,
+    fbc: attribution.fbc || null,
+    landing_page: attribution.landingPage || null,
+    referrer: attribution.referrer || null,
+    attribution,
+    user_agent: payload.technical && payload.technical.userAgent
+  };
+}
+
+async function upsertSupabaseLead(config, payload) {
+  const endpoint = `${config.url}/rest/v1/${encodeURIComponent(config.table)}?on_conflict=event_id`;
+  return requestJson(endpoint, {
+    method: 'POST',
+    payload: mapLeadToSupabaseRow(payload),
+    headers: supabaseHeaders(config, 'resolution=merge-duplicates,return=minimal')
+  });
+}
+
+async function updateSupabasePreference(config, payload) {
+  const endpoint = `${config.url}/rest/v1/${encodeURIComponent(config.table)}?id=eq.${encodeURIComponent(payload.leadId)}`;
+  const status = payload.preference === 'callback' ? 'callback_requested' : 'calendar_opened';
+  return requestJson(endpoint, {
+    method: 'PATCH',
+    payload: {
+      contact_preference: payload.preference,
+      status,
+      preference_updated_at: payload.updatedAt,
+      updated_at: payload.updatedAt
+    },
+    headers: supabaseHeaders(config)
+  });
+}
+
+async function forwardToWebhook(payload) {
+  const webhookUrl = cleanText(process.env.LEAD_WEBHOOK_URL, 1200);
+  if (!webhookUrl) return { skipped: 'not_configured' };
   const headers = {};
   if (process.env.LEAD_WEBHOOK_SECRET) {
     headers.Authorization = `Bearer ${process.env.LEAD_WEBHOOK_SECRET}`;
   }
-  return postJson(webhookUrl, payload, headers);
+  await requestJson(webhookUrl, { method: 'POST', payload, headers });
+  return { sent: true };
+}
+
+async function deliverLeadEvent(payload) {
+  const supabase = getSupabaseConfig();
+  let durableStorage = false;
+  const result = {
+    primary: 'none',
+    supabase: supabase ? 'pending' : 'not_configured',
+    webhook: process.env.LEAD_WEBHOOK_URL ? 'pending' : 'not_configured'
+  };
+
+  if (supabase) {
+    if (payload.type === 'lead.created') await upsertSupabaseLead(supabase, payload);
+    else if (payload.type === 'lead.preference_updated') await updateSupabasePreference(supabase, payload);
+    result.supabase = 'sent';
+    result.primary = 'supabase';
+    durableStorage = true;
+  }
+
+  if (process.env.LEAD_WEBHOOK_URL) {
+    try {
+      await forwardToWebhook(payload);
+      result.webhook = 'sent';
+      if (!durableStorage) result.primary = 'webhook';
+      durableStorage = true;
+    } catch (error) {
+      result.webhook = 'failed';
+      if (!durableStorage) throw error;
+      console.error('Optional lead webhook failed after durable storage:', error.message);
+    }
+  }
+
+  if (!durableStorage) {
+    if (process.env.VERCEL_ENV === 'production') throw new Error('lead_receiver_not_configured');
+    result.primary = 'development_skip';
+  }
+
+  return result;
 }
 
 async function sendMetaLeadEvent({ lead, eventId, req }) {
@@ -241,13 +355,13 @@ async function sendMetaLeadEvent({ lead, eventId, req }) {
   if (process.env.META_TEST_EVENT_CODE) payload.test_event_code = process.env.META_TEST_EVENT_CODE;
 
   const endpoint = `https://graph.facebook.com/${graphVersion}/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`;
-  return postJson(endpoint, payload, {}, 2200);
+  return requestJson(endpoint, { method: 'POST', payload, timeoutMs: 2200 });
 }
 
 function buildLeadEvent(lead, leadId, eventId, req) {
   return {
     type: 'lead.created',
-    version: 1,
+    version: 2,
     leadId,
     eventId,
     createdAt: new Date().toISOString(),
@@ -282,10 +396,11 @@ async function handleLeadCreate(body, req, res) {
   const eventId = cleanText(body.eventId, 120) || `lead_${crypto.randomUUID()}`;
   const leadEvent = buildLeadEvent(validation.lead, leadId, eventId, req);
 
+  let delivery;
   try {
-    await forwardToLeadReceiver(leadEvent);
+    delivery = await deliverLeadEvent(leadEvent);
   } catch (error) {
-    console.error('Lead receiver failed:', error.message);
+    console.error('Lead delivery failed:', error.message);
     return sendJson(res, 502, {
       ok: false,
       code: 'lead_delivery_failed',
@@ -302,7 +417,7 @@ async function handleLeadCreate(body, req, res) {
     console.error('Meta CAPI event failed:', error.message);
   }
 
-  return sendJson(res, 200, { ok: true, leadId, eventId, metaStatus });
+  return sendJson(res, 200, { ok: true, leadId, eventId, metaStatus, storage: delivery.primary });
 }
 
 async function handlePreferenceUpdate(body, req, res) {
@@ -314,7 +429,7 @@ async function handlePreferenceUpdate(body, req, res) {
 
   const event = {
     type: 'lead.preference_updated',
-    version: 1,
+    version: 2,
     leadId,
     preference,
     updatedAt: new Date().toISOString(),
@@ -323,14 +438,15 @@ async function handlePreferenceUpdate(body, req, res) {
     technical: { userAgent: cleanText(req.headers['user-agent'], 500) }
   };
 
+  let delivery;
   try {
-    await forwardToLeadReceiver(event);
+    delivery = await deliverLeadEvent(event);
   } catch (error) {
-    console.error('Lead preference receiver failed:', error.message);
+    console.error('Lead preference delivery failed:', error.message);
     return sendJson(res, 502, { ok: false, message: 'Die Auswahl konnte gerade nicht gespeichert werden.' });
   }
 
-  return sendJson(res, 200, { ok: true });
+  return sendJson(res, 200, { ok: true, storage: delivery.primary });
 }
 
 async function handler(req, res) {
@@ -363,6 +479,8 @@ module.exports = handler;
 module.exports._internal = {
   ALLOWED_ANSWERS,
   cleanText,
+  getSupabaseConfig,
+  mapLeadToSupabaseRow,
   normalizeEmail,
   normalizePhone,
   sanitizeAttribution,
