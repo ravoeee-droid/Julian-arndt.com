@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const indexPath = path.join(__dirname, 'dist', 'index.html');
-const calendarUrl = 'https://calendar.app.google/sDXSGovL4Bjy41RB8';
+const calendarUrl = 'https://calendly.com/julian-defi-intelligence/30min';
 
 if (!fs.existsSync(indexPath)) {
   throw new Error('dist/index.html is missing before the direct calendar-link step.');
@@ -52,7 +52,7 @@ for (const tag of calendarTags) {
 const unsafeGoogleLinks = (html.match(/<a\b[^>]*href=("[^"]*calendar\.app\.google[^"]*"|'[^']*calendar\.app\.google[^']*')[^>]*>/gi) || [])
   .filter((tag) => !/\bno-unlock\b/i.test(tag) && !/\bwidget-cta\b/i.test(tag));
 if (unsafeGoogleLinks.length) {
-  throw new Error(`Google Calendar links could still trigger the popup: ${unsafeGoogleLinks.join(' | ')}`);
+  throw new Error(`Legacy Google Calendar links could still trigger the popup: ${unsafeGoogleLinks.join(' | ')}`);
 }
 
 fs.writeFileSync(indexPath, html, 'utf8');

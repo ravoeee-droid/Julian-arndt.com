@@ -1,8 +1,13 @@
 {
-  "buildCommand": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node cache-bust-assets.js",
+  "buildCommand": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node inject-cashflow-funnel.js && node cache-bust-assets.js",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/lead.js": {
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -10,6 +15,19 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     }
