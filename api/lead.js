@@ -201,11 +201,14 @@ function getSupabaseConfig() {
 }
 
 function supabaseHeaders(config, prefer = 'return=minimal') {
-  return {
+  const headers = {
     apikey: config.serviceRoleKey,
-    Authorization: `Bearer ${config.serviceRoleKey}`,
     Prefer: prefer
   };
+  if (!config.serviceRoleKey.startsWith('sb_secret_')) {
+    headers.Authorization = `Bearer ${config.serviceRoleKey}`;
+  }
+  return headers;
 }
 
 function mapLeadToSupabaseRow(payload) {
@@ -484,5 +487,6 @@ module.exports._internal = {
   normalizeEmail,
   normalizePhone,
   sanitizeAttribution,
+  supabaseHeaders,
   validateLead
 };
