@@ -184,13 +184,10 @@ async function discoverJulianChatIds(token) {
     const firstName = clean(message.from && message.from.first_name, 100).toLowerCase();
     return firstName === 'julian';
   });
-  const startMessages = messages.filter((message) => clean(message.text, 100).toLowerCase().startsWith('/start'));
-  const candidates = exactJulian.length ? exactJulian : namedJulian.length ? namedJulian : startMessages;
-  const ids = candidates
-    .slice(-5)
-    .map((message) => String(message.chat.id))
-    .filter((value, index, values) => /^\d+$/.test(value) && values.indexOf(value) === index);
-  return ids.slice(-1);
+  const preferred = exactJulian[exactJulian.length - 1] || namedJulian[namedJulian.length - 1] || messages[messages.length - 1];
+  if (!preferred) return [];
+  const chatId = String(preferred.chat.id);
+  return /^\d+$/.test(chatId) ? [chatId] : [];
 }
 
 async function resolveTelegramConfig() {
@@ -201,7 +198,7 @@ async function resolveTelegramConfig() {
   try {
     const discovered = await discoverJulianChatIds(token);
     if (discovered.length) {
-      console.log('Telegram recipient auto-discovered from Julian bot conversation.');
+      console.log('Telegram recipient auto-discovered from private bot conversation.');
       return { token, chatIds: discovered, reason: 'auto_discovered' };
     }
     return { token, chatIds: [], reason: 'recipient_not_found' };
