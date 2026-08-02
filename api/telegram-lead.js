@@ -133,42 +133,91 @@ function formatMessage(payload) {
   return '';
 }
 
-function getTelegramConfig() {
+function getTelegramToken() {
   const token = clean(process.env.TELEGRAM_BOT_TOKEN, 500);
-  const chatIds = clean(process.env.TELEGRAM_CHAT_ID, 1000)
+  return /^\d+:[A-Za-z0-9_-]{20,}$/.test(token) ? token : '';
+}
+
+function getConfiguredChatIds() {
+  return clean(process.env.TELEGRAM_CHAT_ID, 1000)
     .split(',')
     .map((value) => value.trim())
     .filter((value) => /^-?\d+$/.test(value));
-
-  if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(token) || chatIds.length === 0) return null;
-  return { token, chatIds };
 }
 
-async function sendTelegram(token, chatId, text) {
+async function telegramRequest(token, method, payload, timeoutMs = 4500) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4500);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: 'HTML',
-        disable_web_page_preview: true
-      }),
+      body: JSON.stringify(payload || {}),
       signal: controller.signal
     });
-
     const body = await response.text();
-    if (!response.ok) {
-      const error = new Error(`telegram_${response.status}`);
+    let data = null;
+    try { data = body ? JSON.parse(body) : null; } catch (error) { data = null; }
+    if (!response.ok || !data || data.ok !== true) {
+      const error = new Error(`telegram_${method}_${response.status}`);
       error.details = body.slice(0, 500);
       throw error;
     }
+    return data.result;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function discoverJulianChatIds(token) {
+  const updates = await telegramRequest(token, 'getUpdates', {
+    limit: 100,
+    timeout: 0,
+    allowed_updates: ['message']
+  });
+  const messages = (Array.isArray(updates) ? updates : [])
+    .map((update) => update && update.message)
+    .filter((message) => message && message.chat && message.chat.type === 'private');
+
+  const exactJulian = messages.filter((message) => clean(message.text, 100).toLowerCase() === 'julian');
+  const namedJulian = messages.filter((message) => {
+    const firstName = clean(message.from && message.from.first_name, 100).toLowerCase();
+    return firstName === 'julian';
+  });
+  const startMessages = messages.filter((message) => clean(message.text, 100).toLowerCase().startsWith('/start'));
+  const candidates = exactJulian.length ? exactJulian : namedJulian.length ? namedJulian : startMessages;
+  const ids = candidates
+    .slice(-5)
+    .map((message) => String(message.chat.id))
+    .filter((value, index, values) => /^\d+$/.test(value) && values.indexOf(value) === index);
+  return ids.slice(-1);
+}
+
+async function resolveTelegramConfig() {
+  const token = getTelegramToken();
+  if (!token) return { token: '', chatIds: [], reason: 'missing_or_invalid_token' };
+  const configured = getConfiguredChatIds();
+  if (configured.length) return { token, chatIds: configured, reason: 'configured' };
+  try {
+    const discovered = await discoverJulianChatIds(token);
+    if (discovered.length) {
+      console.log('Telegram recipient auto-discovered from Julian bot conversation.');
+      return { token, chatIds: discovered, reason: 'auto_discovered' };
+    }
+    return { token, chatIds: [], reason: 'recipient_not_found' };
+  } catch (error) {
+    console.error('Telegram recipient discovery failed:', error.message);
+    return { token, chatIds: [], reason: 'recipient_discovery_failed' };
+  }
+}
+
+async function sendTelegram(token, chatId, text) {
+  await telegramRequest(token, 'sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -188,8 +237,15 @@ module.exports = async function handler(req, res) {
   const text = formatMessage(payload);
   if (!text) return sendJson(res, 202, { ok: true, skipped: 'unsupported_event' });
 
-  const config = getTelegramConfig();
-  if (!config) return sendJson(res, 503, { ok: false, message: 'Telegram is not configured.' });
+  const config = await resolveTelegramConfig();
+  if (!config.token) {
+    console.error('Telegram lead notification unavailable:', config.reason);
+    return sendJson(res, 503, { ok: false, message: 'Telegram bot token is not configured.' });
+  }
+  if (!config.chatIds.length) {
+    console.error('Telegram lead notification unavailable:', config.reason);
+    return sendJson(res, 503, { ok: false, message: 'Telegram recipient is not configured.' });
+  }
 
   const results = await Promise.allSettled(
     config.chatIds.map((chatId) => sendTelegram(config.token, chatId, text))
@@ -202,12 +258,15 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 502, { ok: false, message: 'Telegram delivery failed.' });
   }
 
-  return sendJson(res, 200, { ok: true, sent });
+  return sendJson(res, 200, { ok: true, sent, recipientSource: config.reason });
 };
 
 module.exports._internal = {
+  discoverJulianChatIds,
   escapeHtml,
   formatCreated,
   formatPreference,
-  getTelegramConfig
+  getConfiguredChatIds,
+  getTelegramToken,
+  resolveTelegramConfig
 };
