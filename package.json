@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node inject-cashflow-funnel.js && node fix-cashflow-mobile.js && node enable-instant-lead-capture.js && node harden-cashflow-funnel.js && node fix-viewport-meta.js && node cache-bust-assets.js",
+    "build": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node inject-cashflow-funnel.js && node fix-cashflow-mobile.js && node enable-instant-lead-capture.js && node harden-cashflow-funnel.js && node fix-viewport-meta.js && node patch-lead-origin-route.js && node cache-bust-assets.js",
     "test": "npm run build && node test-cashflow-funnel.js && node test-production-readiness.js"
   },
   "devDependencies": {}
