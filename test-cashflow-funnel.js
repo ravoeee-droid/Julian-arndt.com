@@ -94,9 +94,23 @@ function validPayload() {
   const originalEnvironment = process.env.VERCEL_ENV;
   const originalWebhook = process.env.LEAD_WEBHOOK_URL;
   const originalMetaToken = process.env.META_CAPI_ACCESS_TOKEN;
+  const originalSupabaseUrl = process.env.SUPABASE_URL;
+  const originalSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalSupabaseTable = process.env.SUPABASE_LEADS_TABLE;
+
   delete process.env.VERCEL_ENV;
   delete process.env.LEAD_WEBHOOK_URL;
   delete process.env.META_CAPI_ACCESS_TOKEN;
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.SUPABASE_LEADS_TABLE;
+
+  const modernHeaders = leadHandler._internal.supabaseHeaders({ serviceRoleKey: 'sb_secret_test' });
+  assert.strictEqual(modernHeaders.apikey, 'sb_secret_test', 'Modern Supabase secret key header is missing.');
+  assert.strictEqual(modernHeaders.Authorization, undefined, 'Modern Supabase secret keys must not be sent as bearer JWTs.');
+
+  const legacyHeaders = leadHandler._internal.supabaseHeaders({ serviceRoleKey: 'legacy.jwt.key' });
+  assert.strictEqual(legacyHeaders.Authorization, 'Bearer legacy.jwt.key', 'Legacy service-role JWT support is missing.');
 
   const methodResponse = await invoke({}, { method: 'GET' });
   assert.strictEqual(methodResponse.status, 405, 'GET should be rejected.');
@@ -151,8 +165,11 @@ function validPayload() {
   if (originalEnvironment === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = originalEnvironment;
   if (originalWebhook === undefined) delete process.env.LEAD_WEBHOOK_URL; else process.env.LEAD_WEBHOOK_URL = originalWebhook;
   if (originalMetaToken === undefined) delete process.env.META_CAPI_ACCESS_TOKEN; else process.env.META_CAPI_ACCESS_TOKEN = originalMetaToken;
+  if (originalSupabaseUrl === undefined) delete process.env.SUPABASE_URL; else process.env.SUPABASE_URL = originalSupabaseUrl;
+  if (originalSupabaseKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY; else process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseKey;
+  if (originalSupabaseTable === undefined) delete process.env.SUPABASE_LEADS_TABLE; else process.env.SUPABASE_LEADS_TABLE = originalSupabaseTable;
 
-  console.log('Cashflow funnel tests passed: build markers, browser script, validation, consent, lead and preference flows.');
+  console.log('Cashflow funnel tests passed: build markers, browser script, validation, consent, modern Supabase keys, lead and preference flows.');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;
