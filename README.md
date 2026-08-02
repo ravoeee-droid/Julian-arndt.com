@@ -25,6 +25,8 @@ npm test
 
 ## Supabase setup
 
+The production lead database is the dedicated Supabase project `julian-arndt-leads`, using the table `public.cashflow_leads`.
+
 Run `supabase/migrations/001_create_cashflow_leads.sql` once in the Supabase SQL editor. Then add the following secrets to the Vercel project for Production, Preview and Development as needed:
 
 ```text
