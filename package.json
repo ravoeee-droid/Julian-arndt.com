@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node inject-cashflow-funnel.js && node fix-cashflow-mobile.js && node harden-cashflow-funnel.js && node track-calendly-bookings.js && node simplify-cashflow-funnel.js && node fix-funnel-validation.js && node inject-meta-journey-tracking.js && node fix-viewport-meta.js && node patch-lead-origin-route.js && node cache-bust-assets.js && node fix-meta-dataset.js && node fix-schedule-storage-status.js && node fix-telegram-recipient.js",
+    "build": "node deploy-uploaded-site.js && node highlight-20-minutes.js && node direct-calendar-links.js && node inject-trust-screenshots.js && node inject-cashflow-funnel.js && node fix-cashflow-mobile.js && node harden-cashflow-funnel.js && node track-calendly-bookings.js && node simplify-cashflow-funnel.js && node fix-funnel-validation.js && node inject-meta-journey-tracking.js && node fix-viewport-meta.js && node patch-lead-origin-route.js && node cache-bust-assets.js && node fix-meta-dataset.js && node fix-schedule-storage-status.js && node fix-telegram-recipient.js && node enhance-telegram-lead-buttons.js",
     "test": "npm run build && node test-cashflow-funnel.js && node test-production-readiness.js",
     "validate:funnel": "node fix-funnel-validation.js"
   },
