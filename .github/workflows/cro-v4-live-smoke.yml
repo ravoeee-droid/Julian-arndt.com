@@ -1,0 +1,33 @@
+name: CRO V4 live smoke
+on:
+  push:
+    branches: [ci/cro-v4-live-smoke-2026-08-17]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live message and lead endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 'https://julian-arndt.com/?cro_v4_smoke=20260817' -o /tmp/live.html
+          grep -q 'Baue dir in unter' /tmp/live.html
+          grep -q 'einen klaren Investmentprozess auf' /tmp/live.html
+          grep -q 'Kostenlose Strategieanalyse starten' /tmp/live.html
+          grep -q 'Dein klarer Weg' /tmp/live.html
+          grep -q 'Das Ergebnis' /tmp/live.html
+          grep -q 'Ausgangslage &amp; Ziel klären' /tmp/live.html
+          grep -q 'Strategie &amp; Risikorahmen bauen' /tmp/live.html
+          grep -q 'Prozess &amp; Routine umsetzen' /tmp/live.html
+          grep -q 'Was du im Prozess <em>konkret aufbaust.</em>' /tmp/live.html
+          if grep -q 'Cashflow-Check' /tmp/live.html; then echo 'vague Cashflow-Check copy remains live'; exit 1; fi
+          if grep -q 'Persönlicher Cashflow-Plan' /tmp/live.html; then echo 'stale hero clutter remains live'; exit 1; fi
+
+          body='{"name":"Systemtest CRO V4","phone":"+491111111111","email":"systemtest-cro-v4@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_cro_v4_smoke_20260817"}'
+          response=$(curl -sS -w '\n%{http_code}' -X POST 'https://julian-arndt.com/api/lead-submit' -H 'Content-Type: application/json' -H 'Origin: https://julian-arndt.com' --data "$body")
+          status=$(printf '%s' "$response" | tail -n1)
+          payload=$(printf '%s' "$response" | sed '$d')
+          echo "HTTP $status"
+          echo "$payload"
+          test "$status" = "200"
+          grep -q '"ok":true' <<< "$payload"
