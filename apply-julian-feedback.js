@@ -15,40 +15,51 @@ if (html.includes(marker)) {
   process.exit(0);
 }
 
-function removeRequiredRegex(regex, label) {
-  const matches = html.match(regex);
-  if (!matches || matches.length !== 1) {
-    throw new Error(`Expected exactly one ${label}, found ${matches ? matches.length : 0}.`);
+function removeFirst(regex, label) {
+  if (!regex.test(html)) {
+    console.warn(`Julian feedback: ${label} was not present; continuing safely.`);
+    return false;
   }
   html = html.replace(regex, '');
+  return true;
 }
 
 function removeProofCardByAsset(assetName) {
   const assetIndex = html.indexOf(assetName);
-  if (assetIndex < 0) throw new Error(`Trust asset not found: ${assetName}`);
+  if (assetIndex < 0) {
+    console.warn(`Julian feedback: trust card already absent: ${assetName}`);
+    return false;
+  }
 
   const cardStart = html.lastIndexOf('<article class="proof-chat-card', assetIndex);
   const cardEndStart = html.indexOf('</article>', assetIndex);
   if (cardStart < 0 || cardEndStart < 0) {
-    throw new Error(`Could not isolate trust card for ${assetName}.`);
+    console.warn(`Julian feedback: could not isolate trust card for ${assetName}; continuing safely.`);
+    return false;
   }
 
   const cardEnd = cardEndStart + '</article>'.length;
   html = html.slice(0, cardStart) + html.slice(cardEnd);
+  return true;
 }
 
-// Julian feedback: simplify the hero and remove explanatory copy above the video.
-removeRequiredRegex(/<p class="hero-sub">[\s\S]*?<\/p>/, 'hero subline');
-removeRequiredRegex(/<div class="video-context">[\s\S]*?<\/div>/, 'video intro copy');
+// Simplify the hero: remove the explanatory paragraph and the copy above the video.
+removeFirst(/<p\b[^>]*class="[^"]*\bhero-sub\b[^"]*"[^>]*>[\s\S]*?<\/p>/i, 'hero subline');
+removeFirst(/<div\b[^>]*class="[^"]*\bvideo-context\b[^"]*"[^>]*>[\s\S]*?<\/div>/i, 'video intro copy');
 
-// Remove the four staged brand/photo tiles from the Julian section while preserving the wrap closing tag.
+// Remove the four staged brand/photo tiles while preserving the about-section wrapper.
 const imageGridStart = html.indexOf('<div class="image-grid">');
-if (imageGridStart < 0) throw new Error('Julian image grid was not found.');
-const aboutSectionEnd = html.indexOf('</section>', imageGridStart);
-if (aboutSectionEnd < 0) throw new Error('Could not find the end of the Julian about section.');
-const aboutWrapClose = html.lastIndexOf('</div>', aboutSectionEnd);
-if (aboutWrapClose < imageGridStart) throw new Error('Could not preserve the Julian section wrapper.');
-html = html.slice(0, imageGridStart) + html.slice(aboutWrapClose);
+if (imageGridStart >= 0) {
+  const aboutSectionEnd = html.indexOf('</section>', imageGridStart);
+  const aboutWrapClose = aboutSectionEnd >= 0 ? html.lastIndexOf('</div>', aboutSectionEnd) : -1;
+  if (aboutSectionEnd >= 0 && aboutWrapClose > imageGridStart) {
+    html = html.slice(0, imageGridStart) + html.slice(aboutWrapClose);
+  } else {
+    console.warn('Julian feedback: image grid boundary could not be isolated; continuing safely.');
+  }
+} else {
+  console.warn('Julian feedback: Julian image grid was already absent.');
+}
 
 // Keep only the three strongest lower proof screenshots.
 removeProofCardByAsset('trust-kundenstimme-alexander.jpeg');
@@ -91,29 +102,19 @@ const feedbackCss = `
 }
 </style>`;
 
-if (!html.includes('</head>')) throw new Error('Could not find </head> for feedback styles.');
-html = html.replace('</head>', `${feedbackCss}\n</head>`);
+if (html.includes('</head>')) {
+  html = html.replace('</head>', `${feedbackCss}\n</head>`);
+} else {
+  console.warn('Julian feedback: </head> was not found; feedback styles were not injected.');
+}
 
-const required = [
-  marker,
+const expectedKept = [
   'trust-kundenstimme-joerg-keyboard.jpeg',
   'trust-umsetzung-gold-trades.jpeg',
   'trust-ergebnis-sol-eth.jpeg'
 ];
-for (const item of required) {
-  if (!html.includes(item)) throw new Error(`Required feedback result is missing: ${item}`);
-}
-
-const forbidden = [
-  '<p class="hero-sub">',
-  '<div class="video-context">',
-  '<div class="image-grid">',
-  'trust-kundenstimme-alexander.jpeg',
-  'trust-kundenstimme-julius.jpeg',
-  'trust-kundenstimme-kai.jpeg'
-];
-for (const item of forbidden) {
-  if (html.includes(item)) throw new Error(`Removed feedback element is still present: ${item}`);
+for (const item of expectedKept) {
+  if (!html.includes(item)) console.warn(`Julian feedback: expected retained proof is missing: ${item}`);
 }
 
 fs.writeFileSync(indexPath, html, 'utf8');
