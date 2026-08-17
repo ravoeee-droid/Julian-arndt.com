@@ -11,7 +11,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          body='{"name":"Systemtest","phone":"+491111111111","email":"systemtest@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_smoke_20260817"}'
+          body='{"name":"Systemtest","phone":"+491111111111","email":"systemtest@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_smoke_20260817_2"}'
           response=$(curl -sS -w '\n%{http_code}' -X POST 'https://julian-arndt.com/api/lead-submit' -H 'Content-Type: application/json' -H 'Origin: https://julian-arndt.com' --data "$body")
           status=$(printf '%s' "$response" | tail -n1)
           payload=$(printf '%s' "$response" | sed '$d')
