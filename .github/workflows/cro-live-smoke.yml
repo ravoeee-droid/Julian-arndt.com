@@ -11,25 +11,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          html=$(curl -fsSL --retry 3 --retry-delay 2 'https://julian-arndt.com/?cro_smoke=20260817')
-          printf '%s' "$html" | grep -q 'Baue dir in unter'
-          printf '%s' "$html" | grep -q 'klaren Investmentprozess'
-          printf '%s' "$html" | grep -q 'cro-proof-strip'
-          printf '%s' "$html" | grep -q 'Trustpilot · 18 Bewertungen'
-          printf '%s' "$html" | grep -q '60-Sekunden-Check'
-          printf '%s' "$html" | grep -q 'Regeln &amp; Risikorahmen'
-          printf '%s' "$html" | grep -q 'rel="canonical" href="https://julian-arndt.com/"\|href="https://julian-arndt.com/" rel="canonical"'
-          printf '%s' "$html" | grep -q 'Wie läuft die kostenlose Analyse ab?'
-          if printf '%s' "$html" | grep -q '4,9 ★'; then echo 'stale Trustpilot score found'; exit 1; fi
-          results_pos=$(printf '%s' "$html" | grep -bo 'id="results"' | head -1 | cut -d: -f1)
-          process_pos=$(printf '%s' "$html" | grep -bo 'id="process"' | head -1 | cut -d: -f1)
+          curl -fsSL --retry 3 --retry-delay 2 'https://julian-arndt.com/?cro_smoke=20260817' -o /tmp/live.html
+          grep -q 'Baue dir in unter' /tmp/live.html
+          grep -q 'klaren Investmentprozess' /tmp/live.html
+          grep -q 'cro-proof-strip' /tmp/live.html
+          grep -q 'Trustpilot · 18 Bewertungen' /tmp/live.html
+          grep -q '60-Sekunden-Check' /tmp/live.html
+          grep -q 'Regeln &amp; Risikorahmen' /tmp/live.html
+          grep -Eq 'rel="canonical" href="https://julian-arndt.com/"|href="https://julian-arndt.com/" rel="canonical"' /tmp/live.html
+          grep -q 'Wie läuft die kostenlose Analyse ab?' /tmp/live.html
+          if grep -q '4,9 ★' /tmp/live.html; then echo 'stale Trustpilot score found'; exit 1; fi
+          results_pos=$(grep -bo 'id="results"' /tmp/live.html | head -1 | cut -d: -f1)
+          process_pos=$(grep -bo 'id="process"' /tmp/live.html | head -1 | cut -d: -f1)
           test "$results_pos" -lt "$process_pos"
 
-          body='{"name":"Systemtest CRO","phone":"+491111111111","email":"systemtest-cro@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_cro_smoke_20260817_final"}'
+          body='{"name":"Systemtest CRO","phone":"+491111111111","email":"systemtest-cro@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_cro_smoke_20260817_final_2"}'
           response=$(curl -sS -w '\n%{http_code}' -X POST 'https://julian-arndt.com/api/lead-submit' -H 'Content-Type: application/json' -H 'Origin: https://julian-arndt.com' --data "$body")
           status=$(printf '%s' "$response" | tail -n1)
           payload=$(printf '%s' "$response" | sed '$d')
           echo "HTTP $status"
           echo "$payload"
           test "$status" = "200"
-          echo "$payload" | grep -q '"ok":true'
+          grep -q '"ok":true' <<< "$payload"
