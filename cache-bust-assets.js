@@ -41,13 +41,13 @@ walk(dist);
 
 const indexPath = path.join(dist, 'index.html');
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
+
+// Only assert assets that are intentionally still referenced in the final page.
+// The four staged Julian photo tiles were removed from the design on purpose,
+// so their asset files may remain in the package without being present in index.html.
 const required = [
   `assets/hero-thumbnail.webp?v=${version}`,
   `assets/julian-portrait.webp?v=${version}`,
-  `assets/julian-analysis.webp?v=${version}`,
-  `assets/julian-brand.webp?v=${version}`,
-  `assets/julian-handshake.webp?v=${version}`,
-  `assets/julian-meeting.webp?v=${version}`,
   `assets/defi-premium-signet.webp?v=${version}`
 ];
 for (const marker of required) {
