@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const leadHandler = require('./lead');
-const telegramLeadHandler = require('./telegram-lead');
+
+const FALLBACK_TELEGRAM_CHAT_IDS = ['393937524', '5056490944'];
 
 function hostnameFromHeader(value) {
   return String(value || '')
@@ -75,6 +76,54 @@ function parseBody(req) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function getTelegramToken() {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  return /^\d+:[A-Za-z0-9_-]{20,}$/.test(token) ? token : '';
+}
+
+function getTelegramChatIds() {
+  const configured = String(process.env.TELEGRAM_CHAT_ID || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => /^-?\d+$/.test(value));
+  return configured.length ? configured : FALLBACK_TELEGRAM_CHAT_IDS;
+}
+
+async function telegramRequest(token, chatId, text) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
+      }),
+      signal: controller.signal
+    });
+    const raw = await response.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch (error) { data = null; }
+    if (!response.ok || !data || data.ok !== true) {
+      throw new Error(`telegram_${response.status}`);
+    }
+    return true;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function buildTelegramFallbackEvent(body, req) {
   const now = new Date().toISOString();
   if (body.action === 'preference') {
@@ -115,28 +164,50 @@ function buildTelegramFallbackEvent(body, req) {
   };
 }
 
-async function deliverTelegramFallback(body, req) {
-  const secret = String(process.env.LEAD_WEBHOOK_SECRET || '').trim();
-  if (!secret) throw new Error('telegram_fallback_secret_missing');
-
-  const event = buildTelegramFallbackEvent(body, req);
-  const telegramReq = {
-    method: 'POST',
-    headers: {
-      ...req.headers,
-      authorization: `Bearer ${secret}`
-    },
-    body: event
-  };
-  const telegramRes = createCaptureResponse();
-  await telegramLeadHandler(telegramReq, telegramRes);
-
-  let responseBody = null;
-  try { responseBody = JSON.parse(telegramRes.body || '{}'); } catch (error) { responseBody = null; }
-  if (telegramRes.statusCode < 200 || telegramRes.statusCode >= 300 || !responseBody || responseBody.ok !== true) {
-    throw new Error(`telegram_fallback_${telegramRes.statusCode || 500}`);
+function fallbackMessage(event) {
+  if (event.type === 'lead.preference_updated') {
+    return [
+      '🔔 <b>LEAD-AKTUALISIERUNG</b>',
+      '',
+      `⏱ <b>Kontaktwunsch:</b> ${escapeHtml(event.preference)}`,
+      `🆔 <b>Lead-ID:</b> <code>${escapeHtml(event.leadId)}</code>`
+    ].join('\n');
   }
 
+  const q = event.qualification || {};
+  const contact = event.contact || {};
+  return [
+    '🚨 <b>NEUER CASHFLOW-LEAD</b>',
+    '',
+    `👤 <b>Name:</b> ${escapeHtml(contact.firstName)}`,
+    `📞 <b>Telefon:</b> <code>${escapeHtml(contact.phone)}</code>`,
+    `✉️ <b>E-Mail:</b> ${escapeHtml(contact.email)}`,
+    '',
+    `🎯 <b>Ziel:</b> ${escapeHtml(q.goal)}`,
+    `📈 <b>Erfahrung:</b> ${escapeHtml(q.experience)}`,
+    `💰 <b>Kapital:</b> ${escapeHtml(q.capital)}`,
+    `🚧 <b>Hindernis:</b> ${escapeHtml(q.blocker)}`,
+    '',
+    `🆔 <b>Lead-ID:</b> <code>${escapeHtml(event.leadId)}</code>`,
+    '',
+    '⚠️ <i>Backup-Zustellung aktiv, weil die primäre Lead-Datenbank nicht erreichbar ist.</i>'
+  ].join('\n');
+}
+
+async function deliverTelegramFallback(body, req) {
+  const token = getTelegramToken();
+  if (!token) throw new Error('telegram_token_missing');
+
+  const chatIds = getTelegramChatIds();
+  if (!chatIds.length) throw new Error('telegram_recipient_missing');
+
+  const event = buildTelegramFallbackEvent(body, req);
+  const text = fallbackMessage(event);
+  const results = await Promise.allSettled(
+    chatIds.map((chatId) => telegramRequest(token, chatId, text))
+  );
+  const sent = results.filter((result) => result.status === 'fulfilled').length;
+  if (sent === 0) throw new Error('telegram_delivery_failed');
   return event;
 }
 
@@ -171,7 +242,7 @@ module.exports = async function handler(req, res) {
   if (deliveryFailed) {
     try {
       const event = await deliverTelegramFallback(body, req);
-      console.warn('Primary lead storage unavailable; Telegram failover delivered the event.');
+      console.warn('Primary lead storage unavailable; direct Telegram failover delivered the event.');
       if (body.action === 'preference') {
         return sendJson(res, 200, { ok: true, storage: 'telegram-fallback' });
       }
@@ -183,7 +254,7 @@ module.exports = async function handler(req, res) {
         storage: 'telegram-fallback'
       });
     } catch (error) {
-      console.error('Telegram lead failover failed:', error.message);
+      console.error('Direct Telegram lead failover failed:', error.message);
     }
   }
 
