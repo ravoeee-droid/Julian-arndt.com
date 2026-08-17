@@ -170,5 +170,90 @@ if (html.includes('id="cashflow-mobile-scroll-fix"')) {
   throw new Error('Could not inject the mobile cashflow funnel fix because </head> is missing.');
 }
 
+/* JULIAN_FEEDBACK_2026_08_17
+   Keep this in an existing production build step so preview and production follow the same pipeline. */
+function removeFirst(regex, label) {
+  if (!regex.test(html)) {
+    console.warn(`Julian feedback: ${label} was not present; continuing safely.`);
+    return false;
+  }
+  html = html.replace(regex, '');
+  return true;
+}
+
+function removeProofCardByAsset(assetName) {
+  const assetIndex = html.indexOf(assetName);
+  if (assetIndex < 0) {
+    console.warn(`Julian feedback: trust card already absent: ${assetName}`);
+    return false;
+  }
+  const cardStart = html.lastIndexOf('<article class="proof-chat-card', assetIndex);
+  const cardEndStart = html.indexOf('</article>', assetIndex);
+  if (cardStart < 0 || cardEndStart < 0) {
+    console.warn(`Julian feedback: could not isolate trust card for ${assetName}; continuing safely.`);
+    return false;
+  }
+  const cardEnd = cardEndStart + '</article>'.length;
+  html = html.slice(0, cardStart) + html.slice(cardEnd);
+  return true;
+}
+
+removeFirst(/<p\b[^>]*class="[^"]*\bhero-sub\b[^"]*"[^>]*>[\s\S]*?<\/p>/i, 'hero subline');
+removeFirst(/<div\b[^>]*class="[^"]*\bvideo-context\b[^"]*"[^>]*>[\s\S]*?<\/div>/i, 'video intro copy');
+
+const imageGridStart = html.indexOf('<div class="image-grid">');
+if (imageGridStart >= 0) {
+  const aboutSectionEnd = html.indexOf('</section>', imageGridStart);
+  const aboutWrapClose = aboutSectionEnd >= 0 ? html.lastIndexOf('</div>', aboutSectionEnd) : -1;
+  if (aboutSectionEnd >= 0 && aboutWrapClose > imageGridStart) {
+    html = html.slice(0, imageGridStart) + html.slice(aboutWrapClose);
+  } else {
+    console.warn('Julian feedback: image grid boundary could not be isolated; continuing safely.');
+  }
+}
+
+removeProofCardByAsset('trust-kundenstimme-alexander.jpeg');
+removeProofCardByAsset('trust-kundenstimme-julius.jpeg');
+removeProofCardByAsset('trust-kundenstimme-kai.jpeg');
+
+const julianFeedbackCss = `
+<style id="julian-feedback-2026-08-17">
+.hero-h1{
+  max-width:840px;
+  font-family:Manrope,sans-serif!important;
+  font-weight:800!important;
+  line-height:1.03!important;
+  letter-spacing:-.045em!important;
+}
+.hero-h1 em,
+.hero-h1 .hero-days{
+  font-family:inherit!important;
+  font-style:normal!important;
+  font-weight:800!important;
+  line-height:inherit!important;
+  letter-spacing:inherit!important;
+}
+.hero .cta-row{margin-top:30px}
+.hero-media{padding-top:48px}
+@media(min-width:981px){
+  .proof-chat-card.featured,
+  .proof-chat-card.result{grid-column:span 4}
+  .proof-chat-grid{align-items:stretch}
+  .proof-chat-card{height:100%}
+}
+@media(max-width:760px){
+  .hero-h1{
+    font-size:clamp(2.35rem,10.7vw,3.75rem)!important;
+    line-height:1.04!important;
+    letter-spacing:-.04em!important;
+  }
+  .hero .cta-row{margin-top:24px}
+}
+</style>`;
+
+if (!html.includes('id="julian-feedback-2026-08-17"') && html.includes('</head>')) {
+  html = html.replace('</head>', `${julianFeedbackCss}\n</head>`);
+}
+
 fs.writeFileSync(indexPath, html, 'utf8');
-console.log('Cashflow funnel mobile scrolling and safe-area handling fixed.');
+console.log('Cashflow mobile fix and Julian visual feedback applied.');
