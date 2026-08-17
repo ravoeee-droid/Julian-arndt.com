@@ -41,12 +41,14 @@ function removeProofCardByAsset(assetName) {
 removeRequiredRegex(/<p class="hero-sub">[\s\S]*?<\/p>/, 'hero subline');
 removeRequiredRegex(/<div class="video-context">[\s\S]*?<\/div>/, 'video intro copy');
 
-// Remove the four staged brand/photo tiles from the Julian section.
+// Remove the four staged brand/photo tiles from the Julian section while preserving the wrap closing tag.
 const imageGridStart = html.indexOf('<div class="image-grid">');
 if (imageGridStart < 0) throw new Error('Julian image grid was not found.');
 const aboutSectionEnd = html.indexOf('</section>', imageGridStart);
 if (aboutSectionEnd < 0) throw new Error('Could not find the end of the Julian about section.');
-html = html.slice(0, imageGridStart) + html.slice(aboutSectionEnd);
+const aboutWrapClose = html.lastIndexOf('</div>', aboutSectionEnd);
+if (aboutWrapClose < imageGridStart) throw new Error('Could not preserve the Julian section wrapper.');
+html = html.slice(0, imageGridStart) + html.slice(aboutWrapClose);
 
 // Keep only the three strongest lower proof screenshots.
 removeProofCardByAsset('trust-kundenstimme-alexander.jpeg');
