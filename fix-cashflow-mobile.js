@@ -171,7 +171,7 @@ if (html.includes('id="cashflow-mobile-scroll-fix"')) {
 }
 
 /* JULIAN_FEEDBACK_2026_08_17
-   Keep this in an existing production build step so preview and production follow the same pipeline. */
+   Applied inside an existing production build step so preview and production use the same pipeline. */
 function removeFirst(regex, label) {
   if (!regex.test(html)) {
     console.warn(`Julian feedback: ${label} was not present; continuing safely.`);
@@ -198,9 +198,11 @@ function removeProofCardByAsset(assetName) {
   return true;
 }
 
+// Requested hero cleanup.
 removeFirst(/<p\b[^>]*class="[^"]*\bhero-sub\b[^"]*"[^>]*>[\s\S]*?<\/p>/i, 'hero subline');
 removeFirst(/<div\b[^>]*class="[^"]*\bvideo-context\b[^"]*"[^>]*>[\s\S]*?<\/div>/i, 'video intro copy');
 
+// Remove the four staged image tiles beneath the Julian section while preserving its wrapper.
 const imageGridStart = html.indexOf('<div class="image-grid">');
 if (imageGridStart >= 0) {
   const aboutSectionEnd = html.indexOf('</section>', imageGridStart);
@@ -212,6 +214,7 @@ if (imageGridStart >= 0) {
   }
 }
 
+// Keep only the lower three proof screenshots.
 removeProofCardByAsset('trust-kundenstimme-alexander.jpeg');
 removeProofCardByAsset('trust-kundenstimme-julius.jpeg');
 removeProofCardByAsset('trust-kundenstimme-kai.jpeg');
@@ -236,10 +239,17 @@ const julianFeedbackCss = `
 .hero .cta-row{margin-top:30px}
 .hero-media{padding-top:48px}
 @media(min-width:981px){
+  .proof-chat-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:18px;
+    align-items:stretch;
+  }
+  .proof-chat-card,
   .proof-chat-card.featured,
-  .proof-chat-card.result{grid-column:span 4}
-  .proof-chat-grid{align-items:stretch}
-  .proof-chat-card{height:100%}
+  .proof-chat-card.result{
+    grid-column:auto!important;
+    height:100%;
+  }
 }
 @media(max-width:760px){
   .hero-h1{
