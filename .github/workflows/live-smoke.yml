@@ -1,0 +1,42 @@
+name: Live production smoke test
+on:
+  push:
+    branches:
+      - ci/live-smoke-2026-08-17
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live Julian site
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 3 --max-time 30 https://www.julian-arndt.com/ -o live.html
+          node <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('live.html','utf8');
+          const mustHave = [
+            'id="julian-feedback-2026-08-17"',
+            'font-family:Manrope,sans-serif!important',
+            'trust-kundenstimme-joerg-keyboard.jpeg',
+            'trust-umsetzung-gold-trades.jpeg',
+            'trust-ergebnis-sol-eth.jpeg'
+          ];
+          const mustNotHave = [
+            '<p class="hero-sub">',
+            '<div class="video-context">',
+            '<div class="image-grid">',
+            'trust-kundenstimme-alexander.jpeg',
+            'trust-kundenstimme-julius.jpeg',
+            'trust-kundenstimme-kai.jpeg'
+          ];
+          for (const marker of mustHave) {
+            if (!html.includes(marker)) throw new Error('Missing live marker: ' + marker);
+          }
+          for (const marker of mustNotHave) {
+            if (html.includes(marker)) throw new Error('Removed live marker still present: ' + marker);
+          }
+          const proofCards = (html.match(/<article class="proof-chat-card/g) || []).length;
+          if (proofCards !== 3) throw new Error(`Expected 3 proof cards live, found ${proofCards}`);
+          console.log('LIVE_OK: production matches Julian feedback; exactly 3 proof cards present.');
+          NODE
