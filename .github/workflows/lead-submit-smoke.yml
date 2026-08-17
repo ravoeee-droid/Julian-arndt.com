@@ -1,0 +1,21 @@
+name: Lead submission smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/live-smoke-2026-08-17]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production lead submission
+        shell: bash
+        run: |
+          set -euo pipefail
+          body='{"name":"Systemtest","phone":"+491111111111","email":"systemtest@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_smoke_20260817"}'
+          response=$(curl -sS -w '\n%{http_code}' -X POST 'https://julian-arndt.com/api/lead-submit' -H 'Content-Type: application/json' -H 'Origin: https://julian-arndt.com' --data "$body")
+          status=$(printf '%s' "$response" | tail -n1)
+          payload=$(printf '%s' "$response" | sed '$d')
+          echo "HTTP $status"
+          echo "$payload"
+          test "$status" = "200"
+          echo "$payload" | grep -q '"ok":true'
