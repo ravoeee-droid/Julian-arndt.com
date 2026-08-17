@@ -1,0 +1,17 @@
+name: CRO audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [cro/julian-2026-08-17]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build production output
+        run: npm run build
+      - name: Print CRO structure
+        run: node cro-audit.js
