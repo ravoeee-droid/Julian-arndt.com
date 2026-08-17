@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build production output
-        run: npm run build
+      - name: Run production build and tests
+        run: npm test
       - name: Print CRO structure
         run: node cro-audit.js
