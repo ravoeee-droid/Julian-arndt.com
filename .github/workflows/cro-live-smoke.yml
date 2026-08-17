@@ -1,0 +1,35 @@
+name: CRO live smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/cro-live-smoke-2026-08-17]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live CRO markup and lead flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          html=$(curl -fsSL --retry 3 --retry-delay 2 'https://julian-arndt.com/?cro_smoke=20260817')
+          printf '%s' "$html" | grep -q 'Baue dir in unter'
+          printf '%s' "$html" | grep -q 'klaren Investmentprozess'
+          printf '%s' "$html" | grep -q 'cro-proof-strip'
+          printf '%s' "$html" | grep -q 'Trustpilot · 18 Bewertungen'
+          printf '%s' "$html" | grep -q '60-Sekunden-Check'
+          printf '%s' "$html" | grep -q 'Regeln &amp; Risikorahmen'
+          printf '%s' "$html" | grep -q 'rel="canonical" href="https://julian-arndt.com/"\|href="https://julian-arndt.com/" rel="canonical"'
+          printf '%s' "$html" | grep -q 'Wie läuft die kostenlose Analyse ab?'
+          if printf '%s' "$html" | grep -q '4,9 ★'; then echo 'stale Trustpilot score found'; exit 1; fi
+          results_pos=$(printf '%s' "$html" | grep -bo 'id="results"' | head -1 | cut -d: -f1)
+          process_pos=$(printf '%s' "$html" | grep -bo 'id="process"' | head -1 | cut -d: -f1)
+          test "$results_pos" -lt "$process_pos"
+
+          body='{"name":"Systemtest CRO","phone":"+491111111111","email":"systemtest-cro@example.com","privacyAccepted":true,"marketingConsent":false,"elapsedMs":9000,"answers":{"goal":"structure","experience":"invested","capital":"20k-50k","blocker":"strategy"},"attribution":{"landingPage":"https://julian-arndt.com/"},"eventId":"lead_cro_smoke_20260817_final"}'
+          response=$(curl -sS -w '\n%{http_code}' -X POST 'https://julian-arndt.com/api/lead-submit' -H 'Content-Type: application/json' -H 'Origin: https://julian-arndt.com' --data "$body")
+          status=$(printf '%s' "$response" | tail -n1)
+          payload=$(printf '%s' "$response" | sed '$d')
+          echo "HTTP $status"
+          echo "$payload"
+          test "$status" = "200"
+          echo "$payload" | grep -q '"ok":true'
