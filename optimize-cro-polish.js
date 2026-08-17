@@ -30,12 +30,40 @@ html = html.replaceAll('Dein Cashflow-Profil wird erstellt', 'Deine Einordnung w
 // Keep technical cookie copy aligned with the public funnel name without touching tracking event identifiers.
 html = html.replace('nach dem Absenden des Cashflow-Plans', 'nach dem Absenden des Cashflow-Checks');
 
+// Canonical, Open Graph and structured-data URLs must describe the domain the visitor is actually on.
+html = html.replaceAll('https://defi-intelligence.de/', 'https://julian-arndt.com/');
+html = html.replaceAll('https://defi-intelligence.net/', 'https://julian-arndt.com/');
+
+// Keep FAQ schema synchronized with the visible, CRO-optimized FAQ rather than publishing stale copy to search engines.
+const faqSchemaIndex = html.indexOf('"@type":"FAQPage"');
+if (faqSchemaIndex >= 0) {
+  const schemaStart = html.lastIndexOf('<script type="application/ld+json">', faqSchemaIndex);
+  const schemaEndStart = html.indexOf('</script>', faqSchemaIndex);
+  if (schemaStart >= 0 && schemaEndStart > faqSchemaIndex) {
+    const schemaEnd = schemaEndStart + '</script>'.length;
+    const faqSchema = `<script type="application/ld+json">{
+      "@context":"https://schema.org",
+      "@type":"FAQPage",
+      "mainEntity":[
+        {"@type":"Question","name":"Wie läuft die kostenlose Analyse ab?","acceptedAnswer":{"@type":"Answer","text":"Du beantwortest zuerst fünf kurze Fragen. Danach kannst du einen Rückruf anfordern oder direkt einen Termin wählen. Im Gespräch werden Ziel, Erfahrung, Kapitalrahmen und dein bisheriger Prozess eingeordnet – ohne individuelle Kauf- oder Verkaufsempfehlungen."}},
+        {"@type":"Question","name":"Wie viel Startkapital brauche ich?","acceptedAnswer":{"@type":"Answer","text":"Für den kostenlosen Check gibt es keine pauschale Mindestgröße. Ob eine weitere Zusammenarbeit sinnvoll ist, hängt von deiner Ausgangslage, deinen Zielen und deinem Risikorahmen ab."}},
+        {"@type":"Question","name":"Wie viel Zeit brauche ich?","acceptedAnswer":{"@type":"Answer","text":"Für den Aufbau solltest du je nach Phase mit rund 20 Minuten pro Tag rechnen. Sobald dein Prozess steht, kann die laufende Routine deutlich kompakter werden."}}
+      ]
+    }</script>`;
+    html = html.slice(0, schemaStart) + faqSchema + html.slice(schemaEnd);
+  } else {
+    throw new Error('CRO polish: FAQ schema boundaries not found');
+  }
+}
+
 html = html.replace('</head>', `<meta name="cro-version" content="2026-08-17-v3-polished">\n<!-- ${MARKER} -->\n</head>`);
 
 if (html.includes('<span class="stat-n">4,9 ★</span>')) throw new Error('CRO polish: stale review score remains');
 if (!html.includes('60-Sekunden-Check')) throw new Error('CRO polish: hero value strip not updated');
 if (!html.includes('Ausgangslage verstehen')) throw new Error('CRO polish: process label 1 missing');
 if (!html.includes('Regeln &amp; Risikorahmen')) throw new Error('CRO polish: process label 2 missing');
+if (html.includes('rel="canonical"') && html.includes('https://defi-intelligence.de/')) throw new Error('CRO polish: stale canonical remains');
+if (!html.includes('"name":"Wie läuft die kostenlose Analyse ab?"')) throw new Error('CRO polish: FAQ schema not synchronized');
 
 fs.writeFileSync(filePath, html, 'utf8');
-console.log('CRO polish applied: stale proof removed and key messaging synchronized.');
+console.log('CRO polish applied: stale proof removed, messaging synchronized and metadata aligned.');
