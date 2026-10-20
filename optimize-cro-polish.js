@@ -58,6 +58,37 @@ if (faqSchemaIndex >= 0) {
 
 html = html.replace('</head>', `<meta name="cro-version" content="2026-08-17-v3-polished">\n<!-- ${MARKER} -->\n</head>`);
 
+// Typography-only correction on the previously live V3 site.
+// Do not change any video markup or video dimensions.
+const originalHeroDash = 'einen klaren Investmentprozess auf – als Grundlage für zusätzlichen Cashflow.';
+const correctedHeroDash = 'einen klaren Investmentprozess auf. So legst du die Grundlage für zusätzlichen Cashflow.';
+if (!html.includes(originalHeroDash)) throw new Error('Headline fix: expected hero text is absent');
+html = html.replace(originalHeroDash, correctedHeroDash);
+
+const compactHeadlineStyle = `<style id="julian-headlines-2026-10-20">
+/* JULIAN_HEADLINE_SCALE_2026_10_20 */
+.hero-h1 {
+  font-size: clamp(2.15rem, 3vw, 2.8rem) !important;
+  line-height: 1.14 !important;
+  letter-spacing: -.03em !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+.s-h2, .cro-final-cta h2 {
+  font-size: clamp(1.7rem, 2.4vw, 2.3rem) !important;
+  line-height: 1.18 !important;
+  hyphens: none !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+@media (max-width: 760px) {
+  .hero-h1 {font-size: clamp(1.8rem, 7.4vw, 2.2rem) !important;line-height:1.15 !important;}
+  .s-h2, .cro-final-cta h2 {font-size: clamp(1.55rem, 6.3vw, 1.85rem) !important;line-height:1.21 !important;}
+}
+</style>`;
+html = html.replace('</head>', `${compactHeadlineStyle}\n</head>`);
+
 if (html.includes('<span class="stat-n">4,9 ★</span>')) throw new Error('CRO polish: stale review score remains');
 if (!html.includes('60-Sekunden-Check')) throw new Error('CRO polish: hero value strip not updated');
 if (!html.includes('Ausgangslage verstehen')) throw new Error('CRO polish: process label 1 missing');
