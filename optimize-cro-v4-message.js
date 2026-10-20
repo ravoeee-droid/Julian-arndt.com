@@ -27,7 +27,7 @@ else html = html.replace('</head>', `${description}\n</head>`);
 
 html = html.replace(
   /<h1\b[^>]*class=["'][^"']*\bhero-h1\b[^"']*["'][^>]*>[\s\S]*?<\/h1>/i,
-  '<h1 class="hero-h1">Baue dir in unter <em class="hero-days">90 Tagen</em> einen klaren Investmentprozess auf, mit dem du strukturiert zusätzlichen Cashflow über Krypto &amp; DeFi aufbauen kannst – mit nur <em>20 Minuten</em> pro Tag.</h1>'
+  '<h1 class="hero-h1">Baue dir in unter <em class="hero-days">90 Tagen</em> einen klaren Investmentprozess auf, mit dem du strukturiert zusätzlichen Cashflow über Krypto &amp; DeFi aufbauen kannst. Mit nur <em>20 Minuten</em> pro Tag.</h1>'
 );
 
 // Respect Julian's WhatsApp feedback: keep the area around the hero/video clean.
@@ -146,6 +146,18 @@ const required = [
 for (const token of required) if (!html.includes(token)) throw new Error(`CRO V4 missing: ${token}`);
 if (html.includes('Cashflow-Check')) throw new Error('CRO V4: vague Cashflow-Check copy remains');
 if (html.includes('Persönlicher Cashflow-Plan')) throw new Error('CRO V4: stale hero value proposition remains');
+
+// Compact typography on desktop and mobile; avoid automatic headline hyphenation.
+const compactHeadingsCss = `<style id="julian-compact-headings-2026-10-20">
+.hero-h1{font-size:clamp(2.3rem,4vw,3.65rem)!important;line-height:1.12!important;hyphens:none!important;overflow-wrap:normal}
+.s-h2,.cro-final-cta h2{font-size:clamp(1.8rem,3vw,2.75rem)!important;line-height:1.14!important;hyphens:none!important}
+@media(max-width:760px){
+  .hero-h1{font-size:clamp(2rem,8.5vw,2.6rem)!important;line-height:1.12!important}
+  .s-h2,.cro-final-cta h2{font-size:clamp(1.7rem,6.5vw,2.15rem)!important;line-height:1.17!important}
+  .cf-title{font-size:clamp(1.85rem,7vw,2.3rem)!important;line-height:1.12!important;hyphens:none!important}
+}
+</style>`;
+html = html.replace('</head>', `${compactHeadingsCss}\n</head>`);
 
 fs.writeFileSync(filePath, html, 'utf8');
 console.log('CRO V4 applied: clear result, explicit path, strategy-analysis CTA, Julian hero feedback preserved.');
