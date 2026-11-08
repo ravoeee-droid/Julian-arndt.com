@@ -96,5 +96,88 @@ if (!html.includes('Regeln &amp; Risikorahmen')) throw new Error('CRO polish: pr
 if (html.includes('rel="canonical"') && html.includes('https://defi-intelligence.de/')) throw new Error('CRO polish: stale canonical remains');
 if (!html.includes('"name":"Wie läuft die kostenlose Analyse ab?"')) throw new Error('CRO polish: FAQ schema not synchronized');
 
+
+/* OFFICIAL PROVENEXPERT TRUST INTEGRATION — 2026-11-08.
+   Use the provider's real rating artwork and live widget; never hardcode a score. */
+const provenExpertMarker = 'id="julian-provenexpert-inline"';
+if (html.includes(provenExpertMarker) || html.includes('id="proSeal"')) {
+  throw new Error('ProvenExpert injection is already present in the build source.');
+}
+
+const provenExpertProfile = 'https://www.provenexpert.com/julian-arndt/?utm_source=Widget&amp;utm_medium=Widget&amp;utm_campaign=Widget';
+const provenExpertImage = 'https://images.provenexpert.com/9e/d1/d3d60ac664d78382a232b6a62f2f/widget_portrait_180_de_0.png';
+const provenExpertCard = [
+  '<div class="ja-pe-card" id="julian-provenexpert-inline" aria-label="Julian Arndt auf ProvenExpert">',
+  '  <a class="ja-pe-badge-link" href="' + provenExpertProfile + '" title="Kundenbewertungen und Erfahrungen zu Julian Arndt auf ProvenExpert" target="_blank" rel="noopener noreferrer">',
+  '    <img src="' + provenExpertImage + '" alt="Offizielles ProvenExpert-Bewertungssiegel für Julian Arndt" width="180" height="216" loading="lazy" decoding="async">',
+  '  </a>',
+  '  <div class="ja-pe-content">',
+  '    <span class="ja-pe-eyebrow">Unabhängige Kundenbewertungen</span>',
+  '    <strong>Erfahrungen statt Versprechen.</strong>',
+  '    <p>Sieh dir die Bewertungen und Rückmeldungen zu Julian Arndt direkt auf ProvenExpert an.</p>',
+  '    <a class="ja-pe-reviews-link" href="' + provenExpertProfile + '" target="_blank" rel="noopener noreferrer">Bewertungen ansehen <span aria-hidden="true">↗</span></a>',
+  '  </div>',
+  '</div>'
+].join('\n');
+
+const aboutStart = html.indexOf('<section class="section about" id="about">');
+const aboutEnd = aboutStart < 0 ? -1 : html.indexOf('</section>', aboutStart);
+if (aboutStart < 0 || aboutEnd < 0) throw new Error('ProvenExpert: about section not found.');
+const aboutHtml = html.slice(aboutStart, aboutEnd + '</section>'.length);
+const aboutCtaPattern = /(<a\b[^>]*class="[^"]*\bcashflow-funnel-trigger\b[^"]*"[^>]*>[^<]*<\/a>)/i;
+if (!aboutCtaPattern.test(aboutHtml)) throw new Error('ProvenExpert: about CTA not found.');
+const aboutUpdated = aboutHtml.replace(aboutCtaPattern, '$1\n' + provenExpertCard);
+html = html.slice(0, aboutStart) + aboutUpdated + html.slice(aboutEnd + '</section>'.length);
+
+const provenExpertCss = [
+  '<style id="julian-provenexpert-styles">',
+  '/* Premium trust card, coordinated with the black-and-gold finance visual language. */',
+  '.ja-pe-card{display:flex;align-items:center;gap:21px;width:100%;max-width:650px;margin-top:27px;padding:18px 21px;border:1px solid rgba(198,162,42,.24);border-radius:23px;background:linear-gradient(137deg,rgba(198,162,42,.085),rgba(255,255,255,.025) 56%,rgba(0,0,0,.16));box-shadow:0 20px 62px rgba(0,0,0,.21);}',
+  '.ja-pe-badge-link{display:block;flex:0 0 135px;max-width:135px;text-decoration:none;transition:transform .25s ease,filter .25s ease;}',
+  '.ja-pe-badge-link:hover{transform:translateY(-3px);filter:brightness(1.06);}',
+  '.ja-pe-badge-link img{display:block;width:100%;height:auto;object-fit:contain;border:0;}',
+  '.ja-pe-content{min-width:0;display:flex;align-items:flex-start;flex-direction:column;gap:8px;}',
+  '.ja-pe-eyebrow{font-size:.63rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold,#c6a22a);font-weight:800;}',
+  '.ja-pe-content strong{color:var(--cream,#f2eee5);font-size:1rem;line-height:1.35;font-weight:800;}',
+  '.ja-pe-content p{margin:0!important;color:var(--muted,#a7a5a0);font-size:.8rem;line-height:1.6;}',
+  '.ja-pe-reviews-link{display:inline-flex;align-items:center;gap:8px;margin-top:2px;font-size:.78rem;font-weight:800;color:var(--gold2,#e2be60);text-decoration:none;border-bottom:1px solid rgba(198,162,42,.35);padding-bottom:3px;transition:color .2s ease,border-color .2s ease;}',
+  '.ja-pe-reviews-link:hover{color:#f4d581;border-color:currentColor;}',
+  '@media(max-width:760px){.ja-pe-card{gap:15px;margin-top:22px;padding:15px;border-radius:19px;}.ja-pe-badge-link{flex-basis:106px;max-width:106px;}.ja-pe-content strong{font-size:.9rem;}.ja-pe-eyebrow{font-size:.57rem;letter-spacing:.08em;}.ja-pe-content p{font-size:.72rem;line-height:1.45;}.ja-pe-reviews-link{font-size:.71rem;}}',
+  '@media(max-width:360px){.ja-pe-card{gap:11px;padding:11px;}.ja-pe-badge-link{flex-basis:90px;max-width:90px;}.ja-pe-content{gap:6px;}}',
+  '@media(prefers-reduced-motion:reduce){.ja-pe-badge-link,.ja-pe-reviews-link{transition:none;}}',
+  '</style>'
+].join('\n');
+
+if (!html.includes('</head>') || !html.includes('</body>')) throw new Error('ProvenExpert: document boundaries missing.');
+html = html.replace('</head>', provenExpertCss + '\n</head>');
+
+const provenExpertProSeal = [
+  '<!-- Official ProvenExpert ProSeal (Julian Arndt) -->',
+  '<noscript><a href="https://www.provenexpert.com/julian-arndt/?utm_source=seals&amp;utm_campaign=proseal&amp;utm_medium=profile&amp;utm_content=0d5e8943-6459-4e34-ae63-0885f36db91f" target="_blank" title="Kundenbewertungen und Erfahrungen zu Julian Arndt" class="pe-pro-seal-more-infos" rel="nofollow noopener noreferrer">Mehr Informationen auf ProvenExpert</a></noscript>',
+  '<script nowprocket id="proSeal">',
+  'window.loadProSeal = function () {',
+  '  if (!window.provenExpert || typeof window.provenExpert.proSeal !== "function") return;',
+  '  window.provenExpert.proSeal({',
+  '    widgetId: "0d5e8943-6459-4e34-ae63-0885f36db91f",',
+  '    language: "de-DE", usePageLanguage: false,',
+  '    bannerColor: "#097E92", textColor: "#FFFFFF",',
+  '    showReviews: true, hideDate: true, hideName: false,',
+  '    hideOnMobile: false, bottom: "250px", stickyToSide: "right",',
+  '    googleStars: false, zIndex: "4000", displayReviewerLastName: false',
+  '  });',
+  '};',
+  '</script>',
+  '<script nowprocket src="https://s.provenexpert.net/seals/proseal-v2.js" async onload="window.loadProSeal && window.loadProSeal()"></script>',
+  '<!-- End Official ProvenExpert ProSeal -->'
+].join('\n');
+html = html.replace('</body>', provenExpertProSeal + '\n</body>');
+
+if ((html.match(/id="julian-provenexpert-inline"/g) || []).length !== 1 ||
+    (html.match(/id="proSeal"/g) || []).length !== 1 ||
+    !html.includes('0d5e8943-6459-4e34-ae63-0885f36db91f') ||
+    !html.includes(provenExpertImage)) {
+  throw new Error('ProvenExpert trust integration failed validation.');
+}
+
 fs.writeFileSync(filePath, html, 'utf8');
 console.log('CRO polish applied: stale proof removed, messaging synchronized and metadata aligned.');
