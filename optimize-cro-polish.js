@@ -181,3 +181,18 @@ if ((html.match(/id="julian-provenexpert-inline"/g) || []).length !== 1 ||
 
 fs.writeFileSync(filePath, html, 'utf8');
 console.log('CRO polish applied: stale proof removed, messaging synchronized and metadata aligned.');
+
+ 
+// Display the customer name in abbreviated form as requested.
+// Apply this only to the final generated page, after all existing build transforms.
+{
+  const current = fs.readFileSync(filePath, 'utf8');
+  const namePattern = /J(?:ö|&ouml;|&#246;|&#x0*F6;|&#x0*f6;)rg(?:\s|&nbsp;)+Arndt/g;
+  const matches = current.match(namePattern) || [];
+  if (matches.length === 0) {
+    throw new Error('Could not find the customer name Jörg Arndt in the final HTML.');
+  }
+  const anonymized = current.replace(namePattern, 'Jörg A.');
+  fs.writeFileSync(filePath, anonymized, 'utf8');
+  console.log('Customer display name shortened to Jörg A. (' + matches.length + ' occurrence(s)).');
+}
